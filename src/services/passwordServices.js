@@ -1,10 +1,13 @@
 import { query } from "../db.js";
-import { checkAppKey, generatePin, sendEmail } from "../lib/lib.js";
+import { checkAppKey, decryptPW, encryptPW, generatePin, sendEmail } from "../lib/lib.js";
 
 export const mailPW = async (clientEmail, appkey) => {
    const isValid = await checkAppKey(appkey);
    if (!isValid) {
-      throw new Error("Unauthorized");
+      return {
+         success: false,
+         message: 'Unauthorized'
+      }
    }
    try {
       const selected = await query(
@@ -23,10 +26,17 @@ export const mailPW = async (clientEmail, appkey) => {
 
          await sendEmail(clientEmail, clientId, newPin);
          return { success: true, message: 'Email sent.' };
+      } else {
+         return {
+            success: false,
+            message: "User with corresponding email not found"
+         }
       }
    } catch (error) {
-      console.error('Error in forgotPassword service:', error);
-      throw new Error('An error occurred while processing your request sending password reset email.');
+      return {
+         success: false,
+         message: error.message
+      }
    }
 };
 
@@ -35,24 +45,35 @@ export const updatePasswordLocal = async (data, user_id) => {
    try {
       const [selectedUser] = await query(`SELECT password FROM accounts_tb WHERE user_id = ?`, [user_id]);
       if (!selectedUser) {
-         throw new Error('User not found.');
+         return {
+            success: false,
+            message: 'User not found'
+         }
       }
-      const isOldPasswordValid = data.oldPW === selectedUser.password;
+      const isOldPasswordValid = data.oldPW === decryptPW(selectedUser.password);
       if (!isOldPasswordValid) {
-         throw new Error('Old password is incorrect.');
+         return {
+            success: false,
+            message: 'Invalid Credentials'
+         }
       }
-      await query(`UPDATE accounts_tb SET password = ? WHERE user_id = ?`, [data.newPW, user_id]);
+      await query(`UPDATE accounts_tb SET password = ? WHERE user_id = ?`, [encryptPW(data.newPW), user_id]);
       return { success: true, message: 'Password updated successfully.' };
    } catch (error) {
-      console.error('Error in updatePasswordLocal service:', error);
-      throw new Error(error.message || 'An error occurred while processing your request updating password locally.');
+      return {
+         success: false,
+         message: error.message
+      }
    }
 };
 
 export const verifyAndUpdatePassword = async (id, pin, password, appkey) => {
    const isValid = await checkAppKey(appkey);
    if (!isValid) {
-      throw new Error("Unauthorized");
+      return {
+         success: false,
+         message: 'Unauthorized'
+      }
    }
    try {
       const rows = await query(
@@ -60,14 +81,21 @@ export const verifyAndUpdatePassword = async (id, pin, password, appkey) => {
          [id, pin]
       );
 
-      if (rows.length === 0) return false;
+      if (rows.length === 0) {
+         return {
+            success: false,
+            message: 'Failed resetting password'
+         }
+      }
 
-      await query('UPDATE accounts_tb SET password = ? WHERE user_id = ?', [password, id]);
+      await query('UPDATE accounts_tb SET password = ? WHERE user_id = ?', [encryptPW(password), id]);
       await query('DELETE FROM password_reset_pins WHERE user_id = ?', [id]);
 
-      return true;
+      return {
+         success: true,
+         message: 'Password updated successfully'
+      }
    } catch (error) {
-      console.error('Error in verifyAndUpdatePassword service:', error);
       throw new Error('An error occurred while processing your request verifying and updating password.');
    }
 };

@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import nodemailer from 'nodemailer';
+import CryptoJS from 'crypto-js';
 
 export const generatePin = () => {
    return Math.floor(100000 + Math.random() * 900000);
@@ -61,6 +62,16 @@ export const sendEmail = async (email, _id, pin) => {
 };
 
 
+export const encryptPW = (password) => {
+   const encryptedPassword = CryptoJS.AES.encrypt(password, 'DOSWALLAPPKEY').toString();
+   return encryptedPassword
+}
+
+export const decryptPW = (encryptedPassword) => {
+   const decryptedPassword = CryptoJS.AES.decrypt(encryptedPassword, 'DOSWALLAPPKEY').toString(CryptoJS.enc.Utf8);
+   return decryptedPassword
+}
+
 
 export const validateEmail = (email) => {
    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,7 +85,7 @@ export const sanitizeInput = (input) => {
 
 
 export const getLocations = async (lat, lon) => {
-   const radius = 200;
+   const radius = 200; // radius 200 Meter
    const query = `
    [out:json];
    (
@@ -88,7 +99,10 @@ export const getLocations = async (lat, lon) => {
    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
    const response = await fetch(url);
    if (!response.ok) {
-      throw new Error('Failed to fetch data from Overpass API');
+      return {
+         success: false,
+         message: "Failed to get locations"
+      }
    }
 
    const data = await response.json();
