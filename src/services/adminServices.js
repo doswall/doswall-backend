@@ -115,7 +115,7 @@ export const createClients = async (adminData) => {
 
       await query(
          `INSERT INTO accounts_tb (user_id, name, password, email, geotag, status, role, notes, token)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
          [user_id, name.toUpperCase(), encryptPW(password), email, geotag, status, role, notes, token]
       );
 
